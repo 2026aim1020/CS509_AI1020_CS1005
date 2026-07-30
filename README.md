@@ -1,0 +1,2 @@
+# CS509_AI1020_CS1005
+CS509_AI1020_CS1005 buddies assignment repository
