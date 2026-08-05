@@ -66,3 +66,42 @@ std::vector<int> dfs_csr(const CSR &csr, int source)
     }
     return traversal;
 }
+
+SSSPResult sssp_dijkstra_csr(const CSR &csr, int source)
+{
+    SSSPResult res;
+    const double INF = std::numeric_limits<double>::infinity();
+    res.distance.assign(csr.V, INF);
+    if (source < 0 || source >= csr.V)
+        return res;
+
+    res.distance[source] = 0.0;
+
+    using P = std::pair<double, int>; // (distance, vertex)
+    std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
+    pq.push({0.0, source});
+
+    std::vector<char> finalized(csr.V, 0);
+
+    while (!pq.empty())
+    {
+        auto [d, u] = pq.top();
+        pq.pop();
+        if (finalized[u])
+            continue;
+        finalized[u] = 1;
+
+        for (int idx = csr.row_ptr[u]; idx < csr.row_ptr[u + 1]; ++idx)
+        {
+            int v = csr.col_idx[idx];
+            double w = csr.values[idx]; // must be > 0, per assignment spec
+            double cand = res.distance[u] + w;
+            if (cand < res.distance[v])
+            {
+                res.distance[v] = cand;
+                pq.push({cand, v});
+            }
+        }
+    }
+    return res;
+}
