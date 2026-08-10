@@ -20,4 +20,12 @@ struct CentralityResult
 };
 CentralityResult betweenness_centrality(const CSR &csr);
 
+// --- Connected Components --------------------------------------------------
+struct ComponentsResult
+{
+    int num_components = 0;
+    std::vector<int> component_id; // size V
+};
+ComponentsResult connected_components(const CSR &csr);
 
+#endif
