@@ -1,7 +1,7 @@
 #ifndef MAXFLOW_H
 #define MAXFLOW_H
 
-#include "csr.h"
+#include "../../assignment_01/include/csr.h"
 #include <string>
 #include <tuple>
 #include <vector>

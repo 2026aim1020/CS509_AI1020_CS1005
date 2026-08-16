@@ -3,8 +3,8 @@
 // Usage:
 //   ./bc_driver <graph_input_file>
 
-#include "csr.h"
-#include "graph_analytics.h"
+#include "../../assignment_01/include/csr.h"
+#include "../include/graph_analytics.h"
 #include <chrono>
 #include <iomanip>
 #include <iostream>
