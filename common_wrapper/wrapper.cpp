@@ -8,13 +8,14 @@
 //   common_wrapper/wrapper.cpp \
 //   -o wrapper.exe
 
-
 //
 // Build (from the project root
 
-#include "../assignment_01/include/csr.h"                   // Assignment 1         
-#include "../assignment_01/include/graph_algorithms.h"      // Assignment 1
-#include "../assignment_02/include/graph_analytics.h" // Assignment 2 
+#include "../assignment_01/include/csr.h"              // Assignment 1
+#include "../assignment_01/include/graph_algorithms.h" // Assignment 1
+#include "../assignment_02/include/graph_analytics.h"  // Assignment 2
+#include "../assignment_03/include/maxflow.h"          // Assignment 3
+#include "../assignment_03/include/gradient_descent.h" // Assignment 3
 
 #include <algorithm>
 #include <chrono>
@@ -107,9 +108,6 @@ namespace a1
     using common::prompt_int;
     using common::prompt_line;
 
-
-  
-
     void run_bfs_file(const std::string &path)
     {
         std::ostringstream out;
@@ -188,8 +186,6 @@ namespace a1
             run_sssp_file(f);
     }
 
-   
-   
     void menu_bfs()
     {
         std::cout << "\n-- BFS --\n1. Run a single test file\n2. Run all *.txt files in a folder\n3. Back\n";
@@ -256,13 +252,13 @@ namespace a1
 
     void menu_run_all()
     {
-       
+
         std::string graph_dir = prompt_line("Graph folder (BFS/DFS/SSSP) [default assignment_01/tests/graphs]: ");
         if (graph_dir.empty())
             graph_dir = "assignment_01/tests/graphs";
 
         auto graph_files = list_txt_files(graph_dir);
-        if ( graph_files.empty())
+        if (graph_files.empty())
         {
             std::cout << "No test files found.\n";
             return;
@@ -279,7 +275,6 @@ namespace a1
         t2.join();
         t3.join();
 
-
         auto t_end = std::chrono::high_resolution_clock::now();
         std::cout << "\nAssignment 1 finished. Wall-clock: "
                   << std::chrono::duration<double, std::milli>(t_end - t0).count() << " ms\n";
@@ -295,7 +290,7 @@ namespace a1
             int c = prompt_int("Choose an option: ", 7);
             switch (c)
             {
-          
+
             case 1:
                 menu_bfs();
                 break;
@@ -329,7 +324,6 @@ namespace a1
     }
 
 }
-
 
 // ===========================================================================
 // Assignment 2 - Buddy: Triangle Counting + Betweenness Centrality + Connected Components
@@ -555,6 +549,192 @@ namespace a2b
 }
 
 // ===========================================================================
+// Helper functions
+// ===========================================================================
+namespace a3
+{
+    // ===========================================================================
+    // Gradient Descent
+    // ===========================================================================
+    void run_gd_file(const std::string &path)
+    {
+        GDInput in;
+        std::string err;
+        if (!read_gd_input(path, in, err))
+        {
+            std::cout << path << " -> ERROR: " << err << "\n";
+            return;
+        }
+
+        auto t1 = std::chrono::high_resolution_clock::now();
+        GDResult res = gradient_descent(in);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+
+        std::cout << "\nAlgorithm: Gradient Descent\n";
+        std::cout << "File: " << path << "\n";
+        std::cout << "Degree: " << in.degree << "\n";
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "Final x: " << res.final_x << "\n";
+        std::cout << "Final f(x): " << res.final_fx << "\n";
+        std::cout << "Iterations: " << res.iterations << "\n";
+        std::cout << "Converged: " << (res.converged ? "true" : "false") << "\n";
+        std::cout << "Execution time: " << ms << " ms\n";
+    }
+
+    void run_gd_suite(const std::vector<std::string> &files)
+    {
+        for (const auto &f : files)
+            run_gd_file(f);
+    }
+
+    // ===========================================================================
+    // Maxflow-Mincut
+    // ===========================================================================
+    void run_maxflow_file(const std::string &path)
+    {
+        AdjacencyList g;
+        int sink;
+        std::string err;
+        if (!read_maxflow_input(path, g, sink, err))
+        {
+            std::cout << path << " -> ERROR: " << err << "\n";
+            return;
+        }
+
+        // Preprocessing: adjacency-list -> CSR. NOT part of the timed algorithm.
+        CSR csr = build_csr(g);
+
+        auto t1 = std::chrono::high_resolution_clock::now();
+        MaxflowResult res = dinic_maxflow(csr, g.source, sink);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+
+        std::cout << "\nAlgorithm: Maxflow-Mincut\n";
+        std::cout << "File: " << path << "\n";
+        std::cout << "Source: " << g.source << "\n";
+        std::cout << "Sink: " << sink << "\n";
+        std::cout << "Maximum flow: " << res.max_flow << "\n";
+        std::cout << "Minimum cut capacity: " << res.max_flow << "\n";
+        if (g.V < 1000)
+        {
+            std::cout << "Source side:";
+            for (int v : res.source_side)
+                std::cout << " " << v;
+            std::cout << "\nSink side:";
+            for (int v : res.sink_side)
+                std::cout << " " << v;
+            std::cout << "\nCut edges:\n";
+            for (const auto &[u, v, c] : res.cut_edges)
+                std::cout << u << " " << v << " " << c << "\n";
+        }
+        std::cout << "Execution time: " << ms << " ms\n";
+    }
+
+    void run_maxflow_suite(const std::vector<std::string> &files)
+    {
+        for (const auto &f : files)
+            run_maxflow_file(f);
+    }
+
+    // ===========================================================================
+    // Menus
+    // ===========================================================================
+    void menu_gd()
+    {
+        while (true)
+        {
+            std::cout << "\n-- Gradient Descent --\n"
+                      << "1. Run a single test file\n"
+                      << "2. Run all gd_*.txt files in a folder\n"
+                      << "3. Back\n";
+            int c = common::prompt_int("Choose: ", 3);
+            if (c == 1)
+            {
+                run_gd_file(common::prompt_line("Input file path: "));
+            }
+            else if (c == 2)
+            {
+                std::string dir = common::prompt_line("Folder path [default tests]: ");
+                if (dir.empty())
+                    dir = "assignment_03/tests";
+                auto files = common::filter_prefix(common::list_txt_files(dir), "gd_");
+                if (files.empty())
+                {
+                    std::cout << "No gd_*.txt files found in " << dir << "\n";
+                    continue;
+                }
+                std::cout << "Running " << files.size() << " Gradient Descent test file(s)...\n";
+                run_gd_suite(files);
+            }
+            else
+            {
+                return;
+            }
+        }
+    }
+
+    void menu_maxflow()
+    {
+        while (true)
+        {
+            std::cout << "\n-- Maxflow-Mincut --\n"
+                      << "1. Run a single test file\n"
+                      << "2. Run all maxflow_*.txt files in a folder\n"
+                      << "3. Back\n";
+            int c = common::prompt_int("Choose: ", 3);
+            if (c == 1)
+            {
+                run_maxflow_file(common::prompt_line("Input file path: "));
+            }
+            else if (c == 2)
+            {
+                std::string dir = common::prompt_line("Folder path [default tests]: ");
+                if (dir.empty())
+                    dir = "assignment_03/tests";
+                auto files = common::filter_prefix(common::list_txt_files(dir), "maxflow_");
+                if (files.empty())
+                {
+                    std::cout << "No maxflow_*.txt files found in " << dir << "\n";
+                    continue;
+                }
+                std::cout << "Running " << files.size() << " Maxflow-Mincut test file(s)...\n";
+                run_maxflow_suite(files);
+            }
+            else
+            {
+                return;
+            }
+        }
+    }
+
+    void main_menu()
+    {
+        while (true)
+        {
+            std::cout << "\n== Assignment 3 (Buddy): Gradient Descent + Maxflow-Mincut ==\n"
+                      << "1. Gradient Descent\n"
+                      << "2. Maxflow-Mincut\n"
+                      << "3. Exit\n";
+            int c = common::prompt_int("Choose: ", 3);
+            if (c == 1)
+                menu_gd();
+            else if (c == 2)
+                menu_maxflow();
+            else
+                return;
+        }
+    }
+
+    void launch_concurrent(std::vector<std::thread> &threads)
+    {
+        auto files = common::list_txt_files("tests");
+        threads.emplace_back(run_gd_suite, common::filter_prefix(files, "gd_"));
+        threads.emplace_back(run_maxflow_suite, common::filter_prefix(files, "maxflow_"));
+    }
+}
+
+// ===========================================================================
 // Registry + main menu
 // ===========================================================================
 
@@ -572,8 +752,9 @@ int main()
               << "==================================================\n";
 
     std::vector<AssignmentModule> modules = {
-        {"Assignment 1 (BFS/DFS/SSSP)", a1::open_submenu, a1::launch_concurrent},
+        {"Assignment 1 (BFS + DFS + SSSP)", a1::open_submenu, a1::launch_concurrent},
         {"Assignment 2 -(Triangle Counting + Betweenness Centrality + Connected Components)", a2b::open_submenu, a2b::launch_concurrent},
+        {"Assignment 3 (Gradient Descent + Maxflow-Mincut)", a3::main_menu, a3::launch_concurrent},
     };
 
     while (true)
@@ -607,7 +788,7 @@ int main()
             std::cout << "\nEVERYTHING finished (" << threads.size() << " suites across "
                       << modules.size() << " assignments). Total wall-clock: "
                       << std::chrono::duration<double, std::milli>(t_end - t0).count() << " ms\n"
-                      << "(informational only - report each per-file time printed above, not this total)\n";
+                      << "\n";
         }
         else if (choice == exit_choice)
         {
