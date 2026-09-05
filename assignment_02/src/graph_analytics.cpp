@@ -26,7 +26,7 @@ TriangleResult count_triangles(const CSR &csr, bool collect_list)
         const auto &nu = sorted_adj[u];
         for (size_t i = 0; i < nu.size(); ++i)
         {
-            int v = nu[i];
+            int v = nu[i];  
             for (size_t j = i + 1; j < nu.size(); ++j)
             {
                 int w = nu[j];
@@ -137,3 +137,6 @@ ComponentsResult connected_components(const CSR &csr)
     res.num_components = comp_id;
     return res;
 }
+
+
+

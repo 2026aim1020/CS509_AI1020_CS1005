@@ -1,4 +1,4 @@
-#include "graph_algorithms.h"
+#include "../include/graph_algorithms.h"
 #include <queue>
 #include <utility>
 #include <functional>
@@ -20,7 +20,7 @@ BFSResult bfs_csr(const CSR &csr, int source)
     while (!q.empty())
     {
         int u = q.front();
-        q.pop();
+        q.pop(); 
         res.traversal.push_back(u);
 
         for (int idx = csr.row_ptr[u]; idx < csr.row_ptr[u + 1]; ++idx)

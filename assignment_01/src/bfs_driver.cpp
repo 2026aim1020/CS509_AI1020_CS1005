@@ -1,7 +1,7 @@
 // Driver for the BFS buddy task.
 
-#include "csr.h"
-#include "graph_algorithms.h"
+#include "../include/csr.h"
+#include "../include/graph_algorithms.h"
 #include <chrono>
 #include <iostream>
 #include <string>
