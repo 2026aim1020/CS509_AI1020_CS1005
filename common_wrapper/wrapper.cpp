@@ -16,6 +16,8 @@
 #include "../assignment_02/include/graph_analytics.h"  // Assignment 2
 #include "../assignment_03/include/maxflow.h"          // Assignment 3
 #include "../assignment_03/include/gradient_descent.h" // Assignment 3
+#include "../assignment_04/include/kmeans.h"           // Assignment 4
+#include "../assignment_04/include/fastmap.h"          // Assignment 4
 
 #include <algorithm>
 #include <chrono>
@@ -548,9 +550,7 @@ namespace a2b
 
 }
 
-// ===========================================================================
-// Helper functions
-// ===========================================================================
+
 namespace a3
 {
     // ===========================================================================
@@ -735,6 +735,231 @@ namespace a3
 }
 
 // ===========================================================================
+// Assignment 4 (Buddy): K-Means Clustering + FastMap
+// ===========================================================================
+namespace a4b
+{
+    using common::filter_prefix;
+    using common::list_txt_files;
+    using common::prompt_int;
+    using common::prompt_line;
+
+    void run_kmeans_file(const std::string &path)
+    {
+        KMeansInput in;
+        std::string err;
+        if (!read_kmeans_input(path, in, err))
+        {
+            std::cout << "[KM] " << path << " -> ERROR: " << err << "\n";
+            return;
+        }
+
+        auto t1 = std::chrono::high_resolution_clock::now();
+        KMeansResult res = kmeans(in);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "\nAlgorithm: K-Means Clustering\n";
+        std::cout << "File: " << path << "\n";
+        std::cout << "K: " << in.K << "\n";
+        if (in.N <= 50)
+        {
+            std::cout << "Point assignments:\n";
+            for (int i = 0; i < in.N; ++i)
+                std::cout << i << " " << res.assignment[i] << "\n";
+            std::cout << "Final centroids:\n";
+            for (int k = 0; k < in.K; ++k)
+            {
+                std::cout << k << ":";
+                for (double v : res.centroids[k])
+                    std::cout << " " << v;
+                std::cout << "\n";
+            }
+        }
+        std::cout << "WCSS: " << res.wcss << "\n";
+        std::cout << "Iterations: " << res.iterations << "\n";
+        std::cout << "Converged: " << (res.converged ? "true" : "false") << "\n";
+        std::cout << "Execution time: " << ms << " ms\n";
+    }
+
+    void run_fastmap_file(const std::string &path)
+    {
+        FastMapInput in;
+        std::string err;
+        if (!read_fastmap_input(path, in, err))
+        {
+            std::cout << "[FM] " << path << " -> ERROR: " << err << "\n";
+            return;
+        }
+
+        auto t1 = std::chrono::high_resolution_clock::now();
+        FastMapResult res = fastmap(in);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+
+        // Average absolute error between original and embedded distances,
+        // sampled for large N to keep this reporting step itself fast.
+        double total_err = 0.0;
+        long long pair_count = 0;
+        int N = in.N;
+        int stride = (N <= 200) ? 1 : N / 200;
+        for (int i = 0; i < N; i += stride)
+        {
+            for (int j = i + 1; j < N; j += stride)
+            {
+                double embedded = 0.0;
+                for (int k = 0; k < in.K; ++k)
+                {
+                    double diff = res.coords[i][k] - res.coords[j][k];
+                    embedded += diff * diff;
+                }
+                embedded = std::sqrt(embedded);
+                total_err += std::fabs(embedded - in.dist[i][j]);
+                ++pair_count;
+            }
+        }
+        double avg_err = pair_count > 0 ? total_err / pair_count : 0.0;
+
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "\nAlgorithm: FastMap\n";
+        std::cout << "File: " << path << "\n";
+        std::cout << "Target dimensions: " << in.K << "\n";
+        std::cout << "Pivots per dimension:\n";
+        for (size_t d = 0; d < res.pivots.size(); ++d)
+            std::cout << "Dim " << (d + 1) << ": " << res.pivots[d].first << " " << res.pivots[d].second << "\n";
+        if (N <= 50)
+        {
+            std::cout << "Object coordinates:\n";
+            for (int i = 0; i < N; ++i)
+            {
+                std::cout << i << ":";
+                for (double v : res.coords[i])
+                    std::cout << " " << v;
+                std::cout << "\n";
+            }
+        }
+        std::cout << "Avg. distance error (sampled): " << avg_err << "\n";
+        std::cout << "Execution time: " << ms << " ms\n";
+    }
+
+    void run_kmeans_suite(const std::vector<std::string> &files)
+    {
+        for (const auto &f : files)
+            run_kmeans_file(f);
+    }
+    void run_fastmap_suite(const std::vector<std::string> &files)
+    {
+        for (const auto &f : files)
+            run_fastmap_file(f);
+    }
+
+    void menu_kmeans()
+    {
+        std::cout << "\n-- K-Means Clustering --\n1. Run a single test file\n2. Run all km_*.txt files in a folder\n3. Back\n";
+        int c = prompt_int("Choose: ", 3);
+        if (c == 1)
+            run_kmeans_file(prompt_line("Input file path: "));
+        else if (c == 2)
+        {
+            std::string dir = prompt_line("Folder path [default tests]: ");
+            if (dir.empty())
+                dir = "assignment_04/tests";
+            auto files = filter_prefix(list_txt_files(dir), "km_");
+            if (files.empty())
+            {
+                std::cout << "No km_*.txt files found in " << dir << "\n";
+                return;
+            }
+            std::cout << "Running " << files.size() << " K-Means test file(s)...\n";
+            run_kmeans_suite(files);
+        }
+    }
+
+    void menu_fastmap()
+    {
+        std::cout << "\n-- FastMap --\n1. Run a single test file\n2. Run all fm_*.txt files in a folder\n3. Back\n";
+        int c = prompt_int("Choose: ", 3);
+        if (c == 1)
+            run_fastmap_file(prompt_line("Input file path: "));
+        else if (c == 2)
+        {
+            std::string dir = prompt_line("Folder path [default tests]: ");
+            if (dir.empty())
+                dir = "assignment_04/tests";
+            auto files = filter_prefix(list_txt_files(dir), "fm_");
+            if (files.empty())
+            {
+                std::cout << "No fm_*.txt files found in " << dir << "\n";
+                return;
+            }
+            std::cout << "Running " << files.size() << " FastMap test file(s)...\n";
+            run_fastmap_suite(files);
+        }
+    }
+
+    void menu_run_all()
+    {
+        std::string dir = prompt_line("Test folder [default tests]: ");
+        if (dir.empty())
+            dir = "assignment_04/tests";
+        auto all_files = list_txt_files(dir);
+        auto km_files = filter_prefix(all_files, "km_");
+        auto fm_files = filter_prefix(all_files, "fm_");
+        if (km_files.empty() && fm_files.empty())
+        {
+            std::cout << "No test files found.\n";
+            return;
+        }
+
+        std::cout << "Launching K-Means and FastMap concurrently...\n\n";
+        auto t0 = std::chrono::high_resolution_clock::now();
+        std::thread t1(run_kmeans_suite, km_files);
+        std::thread t2(run_fastmap_suite, fm_files);
+        t1.join();
+        t2.join();
+        auto t_end = std::chrono::high_resolution_clock::now();
+        std::cout << "\nAssignment 4 (Buddy) finished. Wall-clock: "
+                  << std::chrono::duration<double, std::milli>(t_end - t0).count() << " ms\n";
+    }
+
+    void main_menu()
+    {
+        while (true)
+        {
+            std::cout << "\n== Assignment 4 (Buddy): K-Means Clustering + FastMap ==\n"
+                      << "1. Run K-Means Clustering\n2. Run FastMap\n"
+                      << "3. Run All (concurrently)\n4. Exit\n";
+            int c = prompt_int("Choose an option: ", 4);
+            switch (c)
+            {
+            case 1:
+                menu_kmeans();
+                break;
+            case 2:
+                menu_fastmap();
+                break;
+            case 3:
+                menu_run_all();
+                break;
+            case 4:
+                return;
+            default:
+                std::cout << "Invalid choice, try again.\n";
+                break;
+            }
+        }
+    }
+
+    void launch_concurrent(std::vector<std::thread> &threads)
+    {
+        auto files = common::list_txt_files("assignment_04/tests");
+        threads.emplace_back(run_kmeans_suite, common::filter_prefix(files, "gd_"));
+        threads.emplace_back(run_fastmap_suite, common::filter_prefix(files, "maxflow_"));
+    }
+}
+
+// ===========================================================================
 // Registry + main menu
 // ===========================================================================
 
@@ -755,6 +980,7 @@ int main()
         {"Assignment 1 (BFS + DFS + SSSP)", a1::open_submenu, a1::launch_concurrent},
         {"Assignment 2 -(Triangle Counting + Betweenness Centrality + Connected Components)", a2b::open_submenu, a2b::launch_concurrent},
         {"Assignment 3 (Gradient Descent + Maxflow-Mincut)", a3::main_menu, a3::launch_concurrent},
+        {"Assignment 4 (K-Means + FastMap)", a4b::main_menu, a4b::launch_concurrent},
     };
 
     while (true)
